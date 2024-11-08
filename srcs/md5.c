@@ -6,7 +6,7 @@
 /*   By: reclaire <reclaire@student.42mulhouse.f    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/11/06 14:06:36 by reclaire          #+#    #+#             */
-/*   Updated: 2024/11/06 20:50:14 by reclaire         ###   ########.fr       */
+/*   Updated: 2024/11/07 02:23:28 by reclaire         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -91,5 +91,18 @@ S32 md5()
 		ft_optind++; /* skip 'md5' */
 	}
 
-	char *data = "42 is nice";
+	char data[] = "42 is nice";
+	U64 data_len = sizeof(data);
+
+	/*
+	x = [ data | 0x80 | zeros | original length in bits (8 bytes) ]
+	len(x) % 64 == 0
+	*/
+	U8 buf[64];
+	U64 data_len2 = data_len + 1 /* last bit */ + 8 /* original len */;
+	U8 rem = data_len2 % 64;
+	U64 total_len = data_len2 + (rem <= 56 ? 56 - rem : 56 + (64 - rem));
+
+	ft_memcpy(buf, data, data_len);
+	
 }
