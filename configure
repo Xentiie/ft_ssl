@@ -1,4 +1,5 @@
 #!/bin/bash
+VER=1.0.1
 set -e
 cd "$(dirname "$0")"
 
@@ -10,7 +11,7 @@ join() {
 	fi
 }
 cf_error() {
-    local i
+	local i
 	local skip
 
 	if [ "$#" -gt 2 ]; then
@@ -24,19 +25,21 @@ cf_error() {
 	echo "$_OWN_NAME: $1"
 	for ((i=skip; i<${#FUNCNAME[@]}; i++)); do
 		if [[ "${FUNCNAME[i]}" == cf_* ]]; then echo -n "  "; fi
-        echo "  at ${FUNCNAME[i]} (${BASH_SOURCE[i]}:${BASH_LINENO[i-1]})"
-    done
+		echo "  at ${FUNCNAME[i]} (${BASH_SOURCE[i]}:${BASH_LINENO[i-1]})"
+	done
 }
 
 _OWN_NAME=$0
 _N=0
+_CC_WINDOWS=x86_64-w64-mingw32-gcc
+_CC_LINUX=gcc
 
 #Global config
 INDENT=0
 OUTPUT_FILE="config.mk"
 OBJS_PATH="./objs"
 RM="rm -rf"
-CC="gcc"
+CC=""
 #Global variables
 OUT_INCLUDES=()
 OUT_LIBS=()
@@ -48,6 +51,7 @@ G_INCLUDES=()
 #config = write formatted libs and cflags
 #json = write formatted json
 MODE="make"
+TARGET_OS=""
 TARGET_NAME=""
 RULE_NAME=""
 
@@ -127,6 +131,12 @@ cf_begin_target() {
 	IMPORTS_LIBS_PATHS=()
 }
 
+_begin_dummy_target() {
+	TARGET_NAME="dummy"
+}
+_end_dummy_target() {
+	TARGET_NAME=""
+}
 _chk_target_scope() {
 	if [ -z "$TARGET_NAME" ]; then
 		cf_error "not in a target scope" 2
@@ -216,23 +226,23 @@ cf_add_pkg() {
 	_chk_target_scope
 	path="$1"
 	if [[ ! -f "$path/configure" ]]; then
-        echo "$_OWN_NAME: $path: no suitable configure"
-        return 1
-    fi
+		echo "$_OWN_NAME: $path: no suitable configure"
+		return 1
+	fi
 
 	set +e
 	output=$("$path/configure" --pkg-config 2>&1)
 	ret=$?
 	set -e
-    if [ $ret -ne 0 ]; then
-        echo "$_OWN_NAME: $path: couldn't execute configure --pkg-config"
-        return 1
-    fi
+	if [ $ret -ne 0 ]; then
+		echo "$_OWN_NAME: $path: couldn't execute configure --pkg-config"
+		return 1
+	fi
 
 	IMPORTS+=("$path")
-    IMPORTS_INCLUDES+=($(echo "$output" | grep -oP '(?<=INCLUDES=).*'))
-    IMPORTS_LIBS+=($(echo "$output" | grep -oP '(?<=LIBS=).*'))
-    IMPORTS_LIBS_PATHS+=($(echo "$output" | grep -oP '(?<=LIBS_PATHS=).*'))
+	IMPORTS_INCLUDES+=($(echo "$output" | grep -oP '(?<=INCLUDES=).*'))
+	IMPORTS_LIBS+=($(echo "$output" | grep -oP '(?<=LIBS=).*'))
+	IMPORTS_LIBS_PATHS+=($(echo "$output" | grep -oP '(?<=LIBS_PATHS=).*'))
 }
 
 cf_add_srcs() {
@@ -255,20 +265,20 @@ cf_begin_rule() {
 	cf_append "$rule_name: "
 	shift
 	while [[ $# -gt 0 ]]; do
-	    case $1 in
+		case $1 in
 			--prereq)
 				prereqs+=("$2")
 				shift
 				shift
 				;;
-	        -*)
-	            echo "Unknown option $1"
-	            return 1
-	            ;;
-	        *)
-	            positionals+=("$1")
-	            shift
-	            ;;
+			-*)
+				echo "Unknown option $1"
+				return 1
+				;;
+			*)
+				positionals+=("$1")
+				shift
+				;;
 		esac
 	done
 
@@ -291,7 +301,7 @@ cf_end_rule() {
 	RULE_NAME=""
 	INDENT=$((INDENT-1))
 	if [ -n "$1" ]; then
-		cf_append "PHONY: %s\n" "$rule_name"
+		cf_append ".PHONY: %s\n" "$rule_name"
 	fi
 	cf_append "\n"
 }
@@ -330,6 +340,7 @@ cf_end_target() {
 
 		cf_begin_rule "all" \
 			--prereq "objs" \
+			--prereq "packages" \
 			--prereq '$(NAME)'
 		cf_end_rule phony
 
@@ -364,9 +375,9 @@ cf_end_target() {
 		done
 
 	elif [ "$MODE" == "config" ]; then
-	    printf "INCLUDES=%s\n" "${OUT_INCLUDES[@]}"
-	    printf "LIBS=%s %s\n" "${OUT_LIBS[@]}" "${LIBS[@]}"
-	    printf "LIBS_PATHS=%s\n" "${OUT_LIBS_PATHS[@]}" "${LIBS_PATHS[@]}"
+		printf "INCLUDES=%s %s\n" "${OUT_INCLUDES[*]}" "${IMPORTS_INCLUDES[*]}"
+		printf "LIBS=%s %s %s\n" "${OUT_LIBS[*]}" "${LIBS[*]}" "${IMPORTS_LIBS[*]}"
+		printf "LIBS_PATHS=%s %s %s\n" "${OUT_LIBS_PATHS[*]}" "${LIBS_PATHS[*]}" "${IMPORTS_LIBS_PATHS[*]}"
 	else
 		printf "{\n"
 		if [ $_N -eq 0 ]; then
@@ -427,19 +438,52 @@ cf_end_target() {
 
 cf_run() {
 	args=()
-	for arg in "$@"; do
-	    if [[ "$arg" == "--pkg-config" ]]; then
-	        MODE="config"
-	    elif [[ "$arg" == "--pkg-json" ]]; then
-	        MODE="json"
-	    else
-	        args+=("$arg")
-	    fi
+	nextarg=""
+	for (( i=0; i < $# + 1; i++ )); do
+		arg="${!i}"
+		j="$((i+1))"
+		nextarg="${!j}"
+	
+		if [[ "$arg" == "--pkg-config" ]]; then
+			MODE="config"
+		elif [[ "$arg" == "--pkg-json" ]]; then
+			MODE="json"
+		elif [[ "$arg" == "-t" ]] || [[ "$arg" == "--target" ]]; then
+			if [[ "$nextarg" != "windows" && "$nextarg" != "linux" ]]; then
+				echo "Invalid option for -t: $nextarg. Valid options are 'windows', 'linux'"
+			fi
+			TARGET_OS="$nextarg"
+			((i++))
+		else
+			args+=("$arg")
+		fi
 	done
 
 	if [ "$MODE" == "make" ]; then
 		echo -n > $OUTPUT_FILE
 	fi
+
+	if [ -z "$TARGET_OS" ]; then
+		if [ -f "/proc/sys/fs/binfmt_misc/WSLInterop" ]; then
+			TARGET_OS="windows"
+		else
+			TARGET_OS="linux"
+		fi
+	fi
+
+	_begin_dummy_target
+	if [ "$TARGET_OS" == "linux" ]; then
+		CC=$_CC_LINUX
+		cf_add_cflag "-DFT_OS_LINUX"
+	elif [ "$TARGET_OS" == "windows" ]; then
+		CC=$_CC_WINDOWS
+		cf_add_cflag "-DFT_OS_WIN"
+	else
+		echo Not supported, defaulting to linux
+		CC=$_CC_LINUX
+		cf_add_cflag "-DFT_OS_LINUX"
+	fi
+	_end_dummy_target
 
 	configure "${args[@]}"
 
@@ -454,6 +498,9 @@ configure() {
 		cf_add_cflag "-Wextra"
 		cf_add_cflag "-Wno-unknown-pragmas"
 		cf_add_cflag "-g"
+
+#		cf_add_raw_lib "libpthreadGC2"
+#		cf_add_raw_lib_path "/mnt/c/Users/reclaire/Desktop/ft_ssl/prebuilt-dll-2-9-1-release/dll/x86/"
 
 		cf_add_pkg "../libft"
 
