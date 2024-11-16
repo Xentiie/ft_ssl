@@ -6,7 +6,7 @@
 /*   By: reclaire <reclaire@student.42mulhouse.f    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/11/06 14:06:36 by reclaire          #+#    #+#             */
-/*   Updated: 2024/11/12 16:15:39 by reclaire         ###   ########.fr       */
+/*   Updated: 2024/11/14 08:42:38 by reclaire         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,11 +20,13 @@
 
 #include <stdlib.h>
 
-S32 md5(struct s_hash_src *src)
+S32 md5()
 {
+	struct s_hash_src *src;
 	struct s_md5_state state;
 	U8 digest[16];
 
+	src = g_sources;
 	while (src)
 	{
 		ft_md5_init(&state);

@@ -6,7 +6,7 @@
 /*   By: reclaire <reclaire@student.42mulhouse.f    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/11/06 13:55:39 by reclaire          #+#    #+#             */
-/*   Updated: 2024/11/13 15:44:29 by reclaire         ###   ########.fr       */
+/*   Updated: 2024/11/15 15:40:35 by reclaire         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,6 +18,7 @@
 #include "libft/io.h"
 #include "libft/lists.h"
 
+#include <unistd.h>
 #include <stdlib.h>
 
 /*
@@ -32,20 +33,25 @@ free
 struct s_func
 {
 	const_string name;
-	S32(*f)
-	(struct s_hash_src *);
+	// clang-format off
+	S32 (*f)(void);
+	// clang-format on
 };
 
-const struct s_func *func;
-bool print_src;
-bool quiet;
-bool reverse;
+const struct s_func *g_func;
+bool g_print_src;
+bool g_quiet;
+bool g_reverse;
+struct s_hash_src *g_sources;
+struct s_hash_src *g_src_last;
 
 static void print_help();
 
 #define FUNC(name, f) {name, f}
 const struct s_func call_table[] = {
-	FUNC("md5", md5)};
+	FUNC("md5", md5),
+	FUNC("sha1", sha1)
+	};
 #undef FUNC
 
 const t_long_opt longopts[] = {
@@ -56,7 +62,7 @@ const t_long_opt longopts[] = {
 	{"string", required_argument, NULL, 's'},
 	{0}};
 
-bool add_src(struct s_hash_src **sources, struct s_hash_src src)
+static bool add_src(struct s_hash_src src)
 {
 	struct s_hash_src *new;
 
@@ -66,53 +72,84 @@ bool add_src(struct s_hash_src **sources, struct s_hash_src src)
 		return FALSE;
 	}
 
-	new->next = *sources;
-	*sources = new;
+	if (g_src_last == NULL)
+	{
+		g_src_last = new;
+		g_sources = new;
+	}
+	else
+	{
+		g_src_last->next = new;
+		g_src_last = new;
+	}
+	return TRUE;
+}
+
+static bool add_src_front(struct s_hash_src src)
+{
+	struct s_hash_src *new;
+
+	if (UNLIKELY((new = ft_memdup(&src, sizeof(struct s_hash_src))) == NULL))
+	{
+		ft_errno = FT_EOMEM;
+		return FALSE;
+	}
+
+	if (g_src_last == NULL)
+	{
+		g_src_last = new;
+		g_sources = new;
+	}
+	else
+	{
+		new->next = g_sources;
+		g_sources = new;
+	}
 	return TRUE;
 }
 
 S32 main()
 {
-	struct s_hash_src *sources;
 	struct s_hash_src *s;
 
 	U8 *ptr;
 	bool read_stdin;
 	U64 len;
 
-	sources = NULL;
 	{ /* options */
 		S32 opt;
 
-		print_src = FALSE;
-		quiet = FALSE;
-		reverse = FALSE;
+		g_sources = NULL;
+		g_src_last = NULL;
+		g_print_src = FALSE;
+		g_quiet = FALSE;
+		g_reverse = FALSE;
 
 		while ((opt = ft_getopt_long(ft_argc, (const_string *)ft_argv, "hpqrs:", longopts, NULL)) != -1)
 		{
 			switch (opt)
 			{
 			case 'p':
-				print_src = TRUE;
+				g_print_src = TRUE;
 				break;
 
 			case 'q':
-				quiet = TRUE;
+				g_quiet = TRUE;
 				break;
 
 			case 'r':
-				reverse = TRUE;
+				g_reverse = TRUE;
 				break;
 
 			case 's':
 				if (UNLIKELY((ptr = (U8 *)ft_strdup_l(ft_optarg, &len)) == NULL))
 					goto exit_err;
 
-				if (UNLIKELY(!add_src(&sources, (struct s_hash_src){
-													.filename = NULL,
-													.content = ptr,
-													.content_len = len,
-													.stdin = FALSE})))
+				if (UNLIKELY(!add_src((struct s_hash_src){
+						.filename = NULL,
+						.content = ptr,
+						.content_len = len,
+						.stdin = FALSE})))
 				{
 					free(ptr);
 					goto exit_err;
@@ -137,23 +174,23 @@ S32 main()
 			return 1;
 		}
 
-		func = NULL;
+		g_func = NULL;
 		for (U8 i = 0; i < (sizeof(call_table) / sizeof(call_table[0])); i++)
 		{
 			if (!ft_strcmp(ft_argv[ft_optind], call_table[i].name))
 			{
-				func = &call_table[i];
+				g_func = &call_table[i];
 				break;
 			}
 		}
-		if (!func)
+		if (!g_func)
 		{
 			ft_fprintf(ft_fstderr, "%s: %s: invalid function\n", ft_argv[0], ft_argv[1]);
 			goto exit_err;
 		}
 		ft_optind++;
 
-		read_stdin = (ft_optind >= ft_argc && sources == NULL) || print_src;
+		read_stdin = (ft_optind >= ft_argc && g_sources == NULL) || g_print_src;
 		while (ft_optind < ft_argc)
 		{
 			t_file *f;
@@ -161,32 +198,33 @@ S32 main()
 			if (!ft_strcmp(ft_argv[ft_optind], "-"))
 			{
 				read_stdin = TRUE;
-				continue;
+				goto rd_nxt;
 			}
 
 			if ((f = ft_fopen(ft_argv[ft_optind], "r")) == NULL)
 			{
 				ft_fprintf(ft_fstderr, "%s: couldn't open '%s': %s\n", ft_argv[0], ft_argv[ft_optind], ft_strerror2(ft_errno));
-				continue;
+				goto rd_nxt;
 			}
 
 			if (UNLIKELY((ptr = ft_freadfile(f, &len)) == NULL))
 			{
 				ft_fclose(f);
 				ft_fprintf(ft_fstderr, "%s: couldn't read '%s': %s\n", ft_argv[0], ft_argv[ft_optind], ft_strerror2(ft_errno));
-				continue;
+				goto rd_nxt;
 			}
 			ft_fclose(f);
 
-			if (UNLIKELY(!add_src(&sources, (struct s_hash_src){
-												.filename = ft_argv[ft_optind],
-												.content = ptr,
-												.content_len = len,
-												.stdin = FALSE})))
+			if (UNLIKELY(!add_src((struct s_hash_src){
+					.filename = ft_argv[ft_optind],
+					.content = ptr,
+					.content_len = len,
+					.stdin = FALSE})))
 			{
 				free(ptr);
 				goto exit_err;
 			}
+		rd_nxt:
 			ft_optind++;
 		}
 
@@ -198,11 +236,11 @@ S32 main()
 				goto exit_err;
 			}
 
-			if (UNLIKELY(!add_src(&sources, (struct s_hash_src){
-												.filename = NULL,
-												.content = ptr,
-												.content_len = len,
-												.stdin = TRUE})))
+			if (UNLIKELY(!add_src_front((struct s_hash_src){
+					.filename = NULL,
+					.content = ptr,
+					.content_len = len,
+					.stdin = TRUE})))
 			{
 				free(ptr);
 				goto exit_err;
@@ -210,16 +248,16 @@ S32 main()
 		}
 	}
 
-	return func->f(sources);
+	return g_func->f();
 
 exit_err:
 	ft_fprintf(ft_fstderr, "%s: exiting with error %s\n", ft_argv[0], ft_strerror(ft_errno));
-	s = sources;
+	s = g_sources;
 	while (s)
 	{
-		sources = s;
+		g_sources = s;
 		s = s->next;
-		free(sources);
+		free(g_sources);
 	}
 	return 1;
 }
@@ -280,43 +318,53 @@ void print_result(struct s_hash_src *src, U8 *data, U64 data_len)
 
 	if (src->stdin)
 	{
-		if (!quiet)
+		if (!g_quiet)
 		{
 			cleaned = clean_nl((const_string)src->content, src->content_len);
-			if (print_src)
+			if (g_print_src)
 				ft_printf("(\"%s\") = ", cleaned);
 			else
 				ft_printf("(stdin) = ");
+			free(cleaned);
+		}
+		else if (g_print_src)
+		{
+			cleaned = clean_nl((const_string)src->content, src->content_len);
+			ft_printf("%s\n", cleaned);
 			free(cleaned);
 		}
 		print_result_data(data, data_len);
 	}
 	else if (src->filename)
 	{
-		if (reverse)
+		if (g_reverse)
 		{
 			print_result_data(data, data_len);
-			ft_printf(" %s", src->filename);
+			if (!g_quiet)
+				ft_printf(" %s", src->filename);
 		}
 		else
 		{
-			ft_printf("%s (%s) = ", func->name, src->filename);
+			if (!g_quiet)
+				ft_printf("%s (%s) = ", g_func->name, src->filename);
 			print_result_data(data, data_len);
 		}
 	}
 	else
 	{
-		if (reverse)
+		if (g_reverse)
 		{
 			print_result_data(data, data_len);
 			cleaned = clean_nl((const_string)src->content, src->content_len);
-			ft_printf(" \"%s\"", cleaned);
+			if (!g_quiet)
+				ft_printf(" \"%s\"", cleaned);
 			free(cleaned);
 		}
 		else
 		{
 			cleaned = clean_nl((const_string)src->content, src->content_len);
-			ft_printf("%s (\"%s\") = ", func->name, cleaned);
+			if (!g_quiet)
+				ft_printf("%s (\"%s\") = ", g_func->name, cleaned);
 			free(cleaned);
 			print_result_data(data, data_len);
 		}
