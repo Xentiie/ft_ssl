@@ -498,10 +498,8 @@ configure() {
 		cf_add_cflag "-Wextra"
 		cf_add_cflag "-Wno-unknown-pragmas"
 		cf_add_cflag "-g"
-
-#		cf_add_raw_lib "libpthreadGC2"
-#		cf_add_raw_lib_path "/mnt/c/Users/reclaire/Desktop/ft_ssl/prebuilt-dll-2-9-1-release/dll/x86/"
-
+		cf_add_cflag "-O3"
+		
 		cf_add_pkg "../libft"
 
 		cf_add_include "./srcs/"

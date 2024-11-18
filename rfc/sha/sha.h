@@ -169,7 +169,7 @@ typedef struct SHA256Context
 
 	int_least16_t Message_Block_Index; /* Message_Block array index */
 									   /* 512-bit message blocks */
-	uint8_t Message_Block[SHA256_Message_Block_Size];
+	uint8_t buffer[SHA256_Message_Block_Size];
 	int Computed;  /* Is the hash computed? */
 	int Corrupted; /* Cumulative corruption code */
 } SHA256Context;

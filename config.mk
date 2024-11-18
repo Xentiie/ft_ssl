@@ -1,13 +1,13 @@
 .DEFAULT_GOAL=all
 NAME=ft_ssl
-CFLAGS=-Wall -Wextra -Wno-unknown-pragmas -g
+CFLAGS=-Wall -Wextra -Wno-unknown-pragmas -g -O3
 INCLUDES= -I./srcs/  -I/home/reclaire/Desktop/libft
 LIBS=  -lft -lm
 LIBS_PATHS=  -L/home/reclaire/Desktop/libft
 RM=rm -rf
 CC=gcc
-SRCS=./srcs/sha.c ./srcs/md5.c ./srcs/main.c
-OBJS=./objs/sha.o ./objs/md5.o ./objs/main.o
+SRCS=./srcs/md5.c ./srcs/sha256.c ./srcs/main.c ./srcs/sha224.c ./srcs/sha1.c
+OBJS=./objs/md5.o ./objs/sha256.o ./objs/main.o ./objs/sha224.o ./objs/sha1.o
 _libft: 
 	$(MAKE) -C ../libft
 .PHONY: _libft
@@ -32,12 +32,18 @@ fclean: clean
 re: fclean all
 .PHONY: re
 
-./objs/sha.o: ./srcs/sha.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/sha.c -o ./objs/sha.o
-
 ./objs/md5.o: ./srcs/md5.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/md5.c -o ./objs/md5.o
 
+./objs/sha256.o: ./srcs/sha256.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/sha256.c -o ./objs/sha256.o
+
 ./objs/main.o: ./srcs/main.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/main.c -o ./objs/main.o
+
+./objs/sha224.o: ./srcs/sha224.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/sha224.c -o ./objs/sha224.o
+
+./objs/sha1.o: ./srcs/sha1.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/sha1.c -o ./objs/sha1.o
 

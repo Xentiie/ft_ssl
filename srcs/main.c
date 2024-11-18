@@ -6,29 +6,17 @@
 /*   By: reclaire <reclaire@student.42mulhouse.f    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/11/06 13:55:39 by reclaire          #+#    #+#             */
-/*   Updated: 2024/11/15 15:40:35 by reclaire         ###   ########.fr       */
+/*   Updated: 2024/11/18 05:37:38 by reclaire         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "ft_ssl.h"
 
-#include "libft/std.h"
 #include "libft/strings.h"
 #include "libft/getopt.h"
 #include "libft/io.h"
-#include "libft/lists.h"
 
-#include <unistd.h>
 #include <stdlib.h>
-
-/*
-open
-close
-read
-write
-malloc
-free
-*/
 
 struct s_func
 {
@@ -42,16 +30,20 @@ const struct s_func *g_func;
 bool g_print_src;
 bool g_quiet;
 bool g_reverse;
+U64 g_buffer_size;
+U8 *g_buffer;
 struct s_hash_src *g_sources;
 struct s_hash_src *g_src_last;
 
 static void print_help();
 
-#define FUNC(name, f) {name, f}
+#define FUNC(f) {#f, f}
 const struct s_func call_table[] = {
-	FUNC("md5", md5),
-	FUNC("sha1", sha1)
-	};
+	FUNC(md5),
+	FUNC(sha1),
+	FUNC(sha224),
+	FUNC(sha256),
+};
 #undef FUNC
 
 const t_long_opt longopts[] = {
@@ -60,17 +52,19 @@ const t_long_opt longopts[] = {
 	{"quiet", no_argument, NULL, 'q'},
 	{"reverse", no_argument, NULL, 'r'},
 	{"string", required_argument, NULL, 's'},
+	{"size", required_argument, NULL, 'S'},
 	{0}};
 
-static bool add_src(struct s_hash_src src)
+static struct s_hash_src *add_src()
 {
 	struct s_hash_src *new;
 
-	if (UNLIKELY((new = ft_memdup(&src, sizeof(struct s_hash_src))) == NULL))
+	if (UNLIKELY((new = malloc(sizeof(struct s_hash_src))) == NULL))
 	{
 		ft_errno = FT_EOMEM;
-		return FALSE;
+		return NULL;
 	}
+	ft_bzero(new, sizeof(struct s_hash_src));
 
 	if (g_src_last == NULL)
 	{
@@ -82,18 +76,19 @@ static bool add_src(struct s_hash_src src)
 		g_src_last->next = new;
 		g_src_last = new;
 	}
-	return TRUE;
+	return new;
 }
 
-static bool add_src_front(struct s_hash_src src)
+static struct s_hash_src *add_src_front()
 {
 	struct s_hash_src *new;
 
-	if (UNLIKELY((new = ft_memdup(&src, sizeof(struct s_hash_src))) == NULL))
+	if (UNLIKELY((new = malloc(sizeof(struct s_hash_src))) == NULL))
 	{
 		ft_errno = FT_EOMEM;
-		return FALSE;
+		return NULL;
 	}
+	ft_bzero(new, sizeof(struct s_hash_src));
 
 	if (g_src_last == NULL)
 	{
@@ -105,16 +100,13 @@ static bool add_src_front(struct s_hash_src src)
 		new->next = g_sources;
 		g_sources = new;
 	}
-	return TRUE;
+	return new;
 }
 
 S32 main()
 {
 	struct s_hash_src *s;
-
-	U8 *ptr;
 	bool read_stdin;
-	U64 len;
 
 	{ /* options */
 		S32 opt;
@@ -124,8 +116,10 @@ S32 main()
 		g_print_src = FALSE;
 		g_quiet = FALSE;
 		g_reverse = FALSE;
+		g_buffer = NULL;
+		g_buffer_size = 8192;
 
-		while ((opt = ft_getopt_long(ft_argc, (const_string *)ft_argv, "hpqrs:", longopts, NULL)) != -1)
+		while ((opt = ft_getopt_long(ft_argc, (const_string *)ft_argv, "hpqrs:S:", longopts, NULL)) != -1)
 		{
 			switch (opt)
 			{
@@ -142,18 +136,26 @@ S32 main()
 				break;
 
 			case 's':
-				if (UNLIKELY((ptr = (U8 *)ft_strdup_l(ft_optarg, &len)) == NULL))
-					goto exit_err;
+				if (UNLIKELY((s = add_src()) == NULL))
+					return 1;
+				s->is_file = FALSE;
+				s->str.data = ft_optarg;
+				s->str.len = ft_strlen(ft_optarg);
+				break;
 
-				if (UNLIKELY(!add_src((struct s_hash_src){
-						.filename = NULL,
-						.content = ptr,
-						.content_len = len,
-						.stdin = FALSE})))
+			case 'S':
+				if (!ft_str_isnbr(ft_optarg))
 				{
-					free(ptr);
-					goto exit_err;
+					ft_fprintf(ft_fstderr, "%s: invalid argument: '%s'\n", ft_argv[0], ft_argv[ft_optind]);
+					return 1;
 				}
+				S64 val = ft_atoi(ft_optarg);
+				if (val < 0)
+				{
+					ft_fprintf(ft_fstderr, "%s: invalid argument: '%s'\n", ft_argv[0], ft_argv[ft_optind]);
+					return 1;
+				}
+				g_buffer_size = val;
 				break;
 
 			case 'h':
@@ -165,6 +167,13 @@ S32 main()
 				print_help();
 				return 1;
 			}
+		}
+
+		if (UNLIKELY((g_buffer = malloc(sizeof(U8) * g_buffer_size)) == NULL))
+		{
+			ft_fprintf(ft_fstderr, "%s: out of memory\n", ft_argv[0]);
+			ft_errno = FT_EOMEM;
+			return 1;
 		}
 
 		if ((ft_argc - ft_optind) < 1)
@@ -186,72 +195,52 @@ S32 main()
 		if (!g_func)
 		{
 			ft_fprintf(ft_fstderr, "%s: %s: invalid function\n", ft_argv[0], ft_argv[1]);
-			goto exit_err;
+			return 1;
 		}
 		ft_optind++;
 
 		read_stdin = (ft_optind >= ft_argc && g_sources == NULL) || g_print_src;
-		while (ft_optind < ft_argc)
+		for (; ft_optind < ft_argc; ft_optind++)
 		{
-			t_file *f;
-
 			if (!ft_strcmp(ft_argv[ft_optind], "-"))
 			{
 				read_stdin = TRUE;
-				goto rd_nxt;
+				continue;
 			}
 
-			if ((f = ft_fopen(ft_argv[ft_optind], "r")) == NULL)
+			if (UNLIKELY((s = add_src()) == NULL))
+				return 1;
+			s->is_file = TRUE;
+			s->file.filename = ft_argv[ft_optind];
+			s->file.f = ft_fopen(s->file.filename, "r");
+			if (s->file.f == NULL)
 			{
-				ft_fprintf(ft_fstderr, "%s: couldn't open '%s': %s\n", ft_argv[0], ft_argv[ft_optind], ft_strerror2(ft_errno));
-				goto rd_nxt;
+				ft_fprintf(ft_fstderr, "%s: couldn't open '%s'\n", ft_argv[0], s->file.filename);
+				continue;
 			}
-
-			if (UNLIKELY((ptr = ft_freadfile(f, &len)) == NULL))
-			{
-				ft_fclose(f);
-				ft_fprintf(ft_fstderr, "%s: couldn't read '%s': %s\n", ft_argv[0], ft_argv[ft_optind], ft_strerror2(ft_errno));
-				goto rd_nxt;
-			}
-			ft_fclose(f);
-
-			if (UNLIKELY(!add_src((struct s_hash_src){
-					.filename = ft_argv[ft_optind],
-					.content = ptr,
-					.content_len = len,
-					.stdin = FALSE})))
-			{
-				free(ptr);
-				goto exit_err;
-			}
-		rd_nxt:
-			ft_optind++;
+			s->rd_buf_len = 0;
 		}
 
 		if (read_stdin)
 		{
-			if (UNLIKELY((ptr = ft_freadfile(ft_fstdin, &len)) == NULL))
-			{
-				ft_fprintf(ft_fstderr, "%s: couldn't read stdin: %s\n", ft_argv[0], ft_strerror2(ft_errno));
-				goto exit_err;
-			}
 
-			if (UNLIKELY(!add_src_front((struct s_hash_src){
-					.filename = NULL,
-					.content = ptr,
-					.content_len = len,
-					.stdin = TRUE})))
-			{
-				free(ptr);
-				goto exit_err;
-			}
+			if (UNLIKELY((s = add_src_front()) == NULL))
+				return 1;
+			s->is_file = TRUE;
+			s->file.filename = NULL;
+			s->file.f = ft_fstdin;
 		}
 	}
-
 	return g_func->f();
+}
 
-exit_err:
-	ft_fprintf(ft_fstderr, "%s: exiting with error %s\n", ft_argv[0], ft_strerror(ft_errno));
+void __attribute__((destructor)) destructor()
+{
+	struct s_hash_src *s;
+
+	free(g_buffer);
+	if (ft_errno != 0)
+		ft_fprintf(ft_fstderr, "%s: exiting with error: %s\n", ft_argv[0], ft_strerror(ft_errno));
 	s = g_sources;
 	while (s)
 	{
@@ -259,14 +248,49 @@ exit_err:
 		s = s->next;
 		free(g_sources);
 	}
-	return 1;
 }
 
-/*
-Aucun arguments:
-stdin: (stdin)= ...
--s: MD5 ("...")= ...
-*/
+struct s_hash_blk read_data(struct s_hash_src *src)
+{
+	struct s_hash_blk blk;
+	S64 ret;
+	U64 cpy;
+
+	blk = (struct s_hash_blk){NULL, 0};
+	if (src->is_file && src->file.f != NULL)
+	{
+		if (UNLIKELY((ret = ft_fread(src->file.f, (char *)g_buffer, g_buffer_size)) == -1))
+		{
+			ft_fprintf(ft_fstderr, "%s: couldn't read file '%s': %s\n", ft_argv[0], src->file.filename, ft_strerror2(ft_errno));
+			exit(1);
+		}
+		blk.ptr = g_buffer;
+		blk.size = ret;
+
+		if (ret == 0)
+		{
+			if (src->file.f != ft_fstdin)
+				ft_fclose(src->file.f);
+			src->file.f = NULL;
+		}
+	}
+	else
+	{
+		blk.ptr = (const U8 *)src->str.data;
+		blk.size = src->str.len;
+		src->str.len = 0;
+	}
+
+	if (src->rd_buf_len < sizeof(src->rd_buf))
+	{
+		cpy = blk.size;
+		if (cpy > sizeof(src->rd_buf) - src->rd_buf_len)
+			cpy = sizeof(src->rd_buf) - src->rd_buf_len;
+		ft_memcpy(src->rd_buf + src->rd_buf_len, blk.ptr, cpy);
+		src->rd_buf_len += cpy;
+	}
+	return blk;
+}
 
 static void print_result_data(U8 *data, U64 data_len)
 {
@@ -274,79 +298,87 @@ static void print_result_data(U8 *data, U64 data_len)
 		ft_printf("%02x", data[i]);
 }
 
-static string clean_nl(const_string str, U64 len)
+static void print_escape(const_string content, U64 len)
 {
-	const_string ptr;
-	string cleaned;
-	U32 nl_cnt;
-	U64 i, j;
-
-	nl_cnt = 0;
-	ptr = str;
-	while ((ptr = ft_strchr(ptr, '\n')) != NULL)
-	{
-		ptr++;
-		nl_cnt++;
-	}
-
-	if (UNLIKELY((cleaned = malloc(sizeof(U8) * (len + (nl_cnt * 2) + 1))) == NULL))
-	{
-		ft_fprintf(ft_fstderr, "%s: out of memory\n", ft_argv[0]);
-		exit(1);
-	}
-	ft_bzero(cleaned, sizeof(U8) * (len + (nl_cnt * 2) + 1));
+	char buf1[2] = {'\\'};
+	U64 i;
 
 	i = 0;
-	j = 0;
 	while (i < len)
 	{
-		if (str[i] == '\n')
+		if (ft_isprint(content[i]))
+			ft_fwrite(ft_fstdout, (char *)&content[i], 1);
+		else if ((content[i] >= 0 && content[i] <= 6) || (content[i] >= 14 && content[i] <= 31) || content[i] == 127)
 		{
-			cleaned[j++] = '\\';
-			cleaned[j++] = 'n';
+			buf1[1] = content[i] + '0';
+			ft_fwrite(ft_fstdout, buf1, 2);
 		}
 		else
-			cleaned[j++] = str[i];
+		{
+			switch (content[i])
+			{
+			case '\a':
+				buf1[1] = 'a';
+				break;
+			case '\b':
+				buf1[1] = 'b';
+				break;
+			case '\t':
+				buf1[1] = 't';
+				break;
+			case '\n':
+				buf1[1] = 'n';
+				break;
+			case '\v':
+				buf1[1] = 'v';
+				break;
+			case '\f':
+				buf1[1] = 'f';
+				break;
+			case '\r':
+				buf1[1] = 'r';
+				break;
+			}
+			ft_fwrite(ft_fstdout, buf1, 2);
+		}
 		i++;
 	}
-	return cleaned;
 }
 
 void print_result(struct s_hash_src *src, U8 *data, U64 data_len)
 {
-	string cleaned;
-
-	if (src->stdin)
+	if (src->is_file && !src->file.filename)
 	{
 		if (!g_quiet)
 		{
-			cleaned = clean_nl((const_string)src->content, src->content_len);
 			if (g_print_src)
-				ft_printf("(\"%s\") = ", cleaned);
+			{
+				ft_printf("(\"");
+				print_escape(src->rd_buf, src->rd_buf_len);
+				ft_printf("\") = ");
+			}
 			else
 				ft_printf("(stdin) = ");
-			free(cleaned);
 		}
 		else if (g_print_src)
 		{
-			cleaned = clean_nl((const_string)src->content, src->content_len);
-			ft_printf("%s\n", cleaned);
-			free(cleaned);
+			print_escape(src->rd_buf, src->rd_buf_len);
+			ft_printf(" ");
 		}
 		print_result_data(data, data_len);
 	}
-	else if (src->filename)
+	else if (src->is_file)
 	{
 		if (g_reverse)
 		{
 			print_result_data(data, data_len);
 			if (!g_quiet)
-				ft_printf(" %s", src->filename);
+				ft_printf(" %s", src->file.filename);
 		}
 		else
 		{
 			if (!g_quiet)
-				ft_printf("%s (%s) = ", g_func->name, src->filename);
+				ft_printf("%s (%s) = ", g_func->name, src->file.filename);
 			print_result_data(data, data_len);
 		}
 	}
@@ -355,17 +387,22 @@ void print_result(struct s_hash_src *src, U8 *data, U64 data_len)
 		if (g_reverse)
 		{
 			print_result_data(data, data_len);
-			cleaned = clean_nl((const_string)src->content, src->content_len);
 			if (!g_quiet)
-				ft_printf(" \"%s\"", cleaned);
-			free(cleaned);
+			{
+				ft_printf(" \"");
+				print_escape(src->rd_buf, src->rd_buf_len);
+				ft_printf("\"");
+			}
 		}
 		else
 		{
-			cleaned = clean_nl((const_string)src->content, src->content_len);
 			if (!g_quiet)
-				ft_printf("%s (\"%s\") = ", g_func->name, cleaned);
-			free(cleaned);
+			{
+
+				ft_printf("%s (\"", g_func->name);
+				print_escape(src->rd_buf, src->rd_buf_len);
+				ft_printf("\") = ");
+			}
 			print_result_data(data, data_len);
 		}
 	}
@@ -376,7 +413,7 @@ static void print_help()
 {
 	ft_printf(
 		"Usage\n\
-  %s <function> [flags]\n\
+  %s <function> [options]\n\
 \n\
 Functions:\n",
 		ft_argv[0]);
@@ -385,10 +422,11 @@ Functions:\n",
 		ft_printf("  %s\n", call_table[i].name);
 
 	ft_printf("\n\
-Flags:\n\
+Options:\n\
   -h --help          print help and exit`\n\
   -q --quiet         quiet output\n\
   -p --print         print source in output\n\
   -r --reverse       reverse filename/hash output orger\n\
-  -s --string <str>  computes the hash for the specified string\n");
+  -s --string <str>  computes the hash for the specified string\n\
+  -S --size <val>    sets the file read buffer size\n");
 }

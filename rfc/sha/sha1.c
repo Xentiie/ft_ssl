@@ -122,7 +122,6 @@ int SHA1Reset(SHA1Context *context)
 int SHA1Input(SHA1Context *context,
 			  const uint8_t *message_array, unsigned length)
 {
-	printf("UPDATE\n");
 	if (!context)
 		return shaNull;
 	if (!length)
@@ -142,11 +141,6 @@ int SHA1Input(SHA1Context *context,
 		if ((SHA1AddLength(context, 8) == shaSuccess) &&
 			(context->Message_Block_Index == SHA1_Message_Block_Size))
 			SHA1ProcessMessageBlock(context);
-
-	for (int i = 0; i < 5; i++)
-	{
-		printf("update: %#x\n", context->Intermediate_Hash[i]);
-	}
 
 		message_array++;
 	}
@@ -176,7 +170,6 @@ int SHA1Input(SHA1Context *context,
 int SHA1FinalBits(SHA1Context *context, uint8_t message_bits,
 				  unsigned int length)
 {
-	printf("FINAL BITS\n");
 	static uint8_t masks[8] = {
 		/* 0 0b00000000 */ 0x00, /* 1 0b10000000 */ 0x80,
 		/* 2 0b11000000 */ 0xC0, /* 3 0b11100000 */ 0xE0,
@@ -230,7 +223,6 @@ int SHA1FinalBits(SHA1Context *context, uint8_t message_bits,
 int SHA1Result(SHA1Context *context,
 			   uint8_t Message_Digest[SHA1HashSize])
 {
-	printf("FINAL\n");
 	int i;
 
 	if (!context)
@@ -240,17 +232,8 @@ int SHA1Result(SHA1Context *context,
 	if (context->Corrupted)
 		return context->Corrupted;
 
-	for (i = 0; i < 5; i++)
-	{
-		printf("before final: %#x\n", context->Intermediate_Hash[i]);
-	}
 	if (!context->Computed)
 		SHA1Finalize(context, 0x80);
-
-	for (i = 0; i < 5; i++)
-	{
-		printf("final: %#x\n", context->Intermediate_Hash[i]);
-	}
 
 	for (i = 0; i < SHA1HashSize; ++i)
 		Message_Digest[i] = (uint8_t)(context->Intermediate_Hash[i >> 2] >> (8 * (3 - (i & 0x03))));
@@ -301,8 +284,6 @@ static void SHA1ProcessMessageBlock(SHA1Context *context)
 
 	for (t = 16; t < 80; t++)
 		W[t] = SHA1_ROTL(1, W[t - 3] ^ W[t - 8] ^ W[t - 14] ^ W[t - 16]);
-	for (int j = 0; j < 80; j++)
-		printf("	%#x\n", W[j]);
 
 	A = context->Intermediate_Hash[0];
 	B = context->Intermediate_Hash[1];
@@ -438,7 +419,6 @@ static void SHA1PadMessage(SHA1Context *context, uint8_t Pad_Byte)
 	/*
 	 * Store the message length as the last 8 octets
 	 */
-	printf("%u %u\n", context->Length_High, context->Length_Low);
 	context->Message_Block[56] = (uint8_t)(context->Length_High >> 24);
 	context->Message_Block[57] = (uint8_t)(context->Length_High >> 16);
 	context->Message_Block[58] = (uint8_t)(context->Length_High >> 8);

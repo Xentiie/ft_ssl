@@ -241,7 +241,7 @@ int SHA256Input(SHA256Context *context, const uint8_t *message_array,
 
 	while (length--)
 	{
-		context->Message_Block[context->Message_Block_Index++] =
+		context->buffer[context->Message_Block_Index++] =
 			*message_array;
 
 		if ((SHA224_256AddLength(context, 8) == shaSuccess) &&
@@ -413,10 +413,10 @@ static void SHA224_256ProcessMessageBlock(SHA256Context *context)
 	 * Initialize the first 16 words in the array W
 	 */
 	for (t = t4 = 0; t < 16; t++, t4 += 4)
-		W[t] = (((uint32_t)context->Message_Block[t4]) << 24) |
-			   (((uint32_t)context->Message_Block[t4 + 1]) << 16) |
-			   (((uint32_t)context->Message_Block[t4 + 2]) << 8) |
-			   (((uint32_t)context->Message_Block[t4 + 3]));
+		W[t] = (((uint32_t)context->buffer[t4]) << 24) |
+			   (((uint32_t)context->buffer[t4 + 1]) << 16) |
+			   (((uint32_t)context->buffer[t4 + 2]) << 8) |
+			   (((uint32_t)context->buffer[t4 + 3]));
 
 	for (t = 16; t < 64; t++)
 		W[t] = SHA256_sigma1(W[t - 2]) + W[t - 7] +
@@ -482,7 +482,7 @@ static void SHA224_256Finalize(SHA256Context *context,
 	SHA224_256PadMessage(context, Pad_Byte);
 	/* message may be sensitive, so clear it out */
 	for (i = 0; i < SHA256_Message_Block_Size; ++i)
-		context->Message_Block[i] = 0;
+		context->buffer[i] = 0;
 	context->Length_High = 0; /* and clear length */
 	context->Length_Low = 0;
 	context->Computed = 1;
@@ -523,28 +523,28 @@ static void SHA224_256PadMessage(SHA256Context *context,
 	 */
 	if (context->Message_Block_Index >= (SHA256_Message_Block_Size - 8))
 	{
-		context->Message_Block[context->Message_Block_Index++] = Pad_Byte;
+		context->buffer[context->Message_Block_Index++] = Pad_Byte;
 		while (context->Message_Block_Index < SHA256_Message_Block_Size)
-			context->Message_Block[context->Message_Block_Index++] = 0;
+			context->buffer[context->Message_Block_Index++] = 0;
 		SHA224_256ProcessMessageBlock(context);
 	}
 	else
-		context->Message_Block[context->Message_Block_Index++] = Pad_Byte;
+		context->buffer[context->Message_Block_Index++] = Pad_Byte;
 
 	while (context->Message_Block_Index < (SHA256_Message_Block_Size - 8))
-		context->Message_Block[context->Message_Block_Index++] = 0;
+		context->buffer[context->Message_Block_Index++] = 0;
 
 	/*
 	 * Store the message length as the last 8 octets
 	 */
-	context->Message_Block[56] = (uint8_t)(context->Length_High >> 24);
-	context->Message_Block[57] = (uint8_t)(context->Length_High >> 16);
-	context->Message_Block[58] = (uint8_t)(context->Length_High >> 8);
-	context->Message_Block[59] = (uint8_t)(context->Length_High);
-	context->Message_Block[60] = (uint8_t)(context->Length_Low >> 24);
-	context->Message_Block[61] = (uint8_t)(context->Length_Low >> 16);
-	context->Message_Block[62] = (uint8_t)(context->Length_Low >> 8);
-	context->Message_Block[63] = (uint8_t)(context->Length_Low);
+	context->buffer[56] = (uint8_t)(context->Length_High >> 24);
+	context->buffer[57] = (uint8_t)(context->Length_High >> 16);
+	context->buffer[58] = (uint8_t)(context->Length_High >> 8);
+	context->buffer[59] = (uint8_t)(context->Length_High);
+	context->buffer[60] = (uint8_t)(context->Length_Low >> 24);
+	context->buffer[61] = (uint8_t)(context->Length_Low >> 16);
+	context->buffer[62] = (uint8_t)(context->Length_Low >> 8);
+	context->buffer[63] = (uint8_t)(context->Length_Low);
 
 	SHA224_256ProcessMessageBlock(context);
 }
