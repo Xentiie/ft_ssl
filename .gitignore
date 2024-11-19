@@ -1,4 +1,4 @@
-./objs
+./objs/*
 *.o
 ./config.mk
 ./ft_ssl
