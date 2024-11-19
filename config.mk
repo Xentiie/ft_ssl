@@ -6,8 +6,8 @@ LIBS=  -lft -lm
 LIBS_PATHS=  -L/home/reclaire/Desktop/libft
 RM=rm -rf
 CC=gcc
-SRCS=./srcs/md5.c ./srcs/sha256.c ./srcs/main.c ./srcs/sha224.c ./srcs/sha1.c
-OBJS=./objs/md5.o ./objs/sha256.o ./objs/main.o ./objs/sha224.o ./objs/sha1.o
+SRCS=./srcs/md5.c ./srcs/sha256.c ./srcs/main.c ./srcs/sha224.c ./srcs/sha1.c ./srcs/whirlpool.c
+OBJS=./objs/md5.o ./objs/sha256.o ./objs/main.o ./objs/sha224.o ./objs/sha1.o ./objs/whirlpool.o
 _libft: 
 	$(MAKE) -C ../libft
 .PHONY: _libft
@@ -46,4 +46,7 @@ re: fclean all
 
 ./objs/sha1.o: ./srcs/sha1.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/sha1.c -o ./objs/sha1.o
+
+./objs/whirlpool.o: ./srcs/whirlpool.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/whirlpool.c -o ./objs/whirlpool.o
 

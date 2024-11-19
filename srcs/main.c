@@ -6,7 +6,7 @@
 /*   By: reclaire <reclaire@student.42mulhouse.f    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/11/06 13:55:39 by reclaire          #+#    #+#             */
-/*   Updated: 2024/11/18 05:37:38 by reclaire         ###   ########.fr       */
+/*   Updated: 2024/11/18 15:57:20 by reclaire         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -43,6 +43,7 @@ const struct s_func call_table[] = {
 	FUNC(sha1),
 	FUNC(sha224),
 	FUNC(sha256),
+	FUNC(whirlpool),
 };
 #undef FUNC
 

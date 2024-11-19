@@ -1,4 +1,5 @@
 ./objs
 *.o
-config.mk
-ft_ssl
+./config.mk
+./ft_ssl
+./test
