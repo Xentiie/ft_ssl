@@ -638,6 +638,13 @@ static int SHA384_512Reset(SHA512Context *context,
  */
 static void SHA384_512ProcessMessageBlock(SHA512Context *context)
 {
+
+	for (int i = 0; i < 128; i++)
+	{
+		printf("%u ", context->Message_Block[i]);
+	}
+	printf("\n\n");
+
 #ifdef USE_32BIT_ONLY
 	/* Constants defined in FIPS 180-3, section 4.2.3 */
 	static const uint32_t K[80 * 2] = {
@@ -1021,6 +1028,12 @@ static int SHA384_512ResultN(SHA512Context *context,
 
 	if (!context->Computed)
 		SHA384_512Finalize(context, 0x80);
+
+		for (int i = 0; i < 8; i++)
+		{
+			printf("%llu ", context->Intermediate_Hash[i]);
+		}
+		printf("\n");
 
 #ifdef USE_32BIT_ONLY
 	for (i = i2 = 0; i < HashSize;)
