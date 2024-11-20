@@ -500,6 +500,8 @@ configure() {
 		cf_add_cflag "-g"
 		cf_add_cflag "-O3"
 		
+		cf_add_raw_lib "readline"
+
 		cf_add_pkg "../libft"
 
 		cf_add_include "./srcs/"

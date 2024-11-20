@@ -1,15 +1,15 @@
 .DEFAULT_GOAL=all
 NAME=ft_ssl
 CFLAGS=-Wall -Wextra -Wno-unknown-pragmas -g -O3
-INCLUDES= -I./srcs/  -I/home/reclaire/Desktop/libft
-LIBS=  -lft -lm
-LIBS_PATHS=  -L/home/reclaire/Desktop/libft
+INCLUDES= -I./srcs/  -I/home/reclaire/Desktop/ft_ssl/libft
+LIBS= -lreadline  -lft -lm
+LIBS_PATHS=  -L/home/reclaire/Desktop/ft_ssl/libft
 RM=rm -rf
 CC=gcc
 SRCS=./srcs/md5.c ./srcs/sha256.c ./srcs/main.c ./srcs/sha224.c ./srcs/sha1.c ./srcs/whirlpool.c
 OBJS=./objs/md5.o ./objs/sha256.o ./objs/main.o ./objs/sha224.o ./objs/sha1.o ./objs/whirlpool.o
 _libft: 
-	$(MAKE) -C ../libft
+	$(MAKE) -C ./libft
 .PHONY: _libft
 
 packages: _libft

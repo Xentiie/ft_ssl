@@ -6,7 +6,7 @@
 /*   By: reclaire <reclaire@student.42mulhouse.f    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/11/06 13:55:39 by reclaire          #+#    #+#             */
-/*   Updated: 2024/11/20 11:04:54 by reclaire         ###   ########.fr       */
+/*   Updated: 2024/11/20 14:51:59 by reclaire         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,6 +17,7 @@
 #include "libft/io.h"
 
 #include <stdlib.h>
+#include <readline/readline.h>
 
 struct s_func
 {
@@ -54,6 +55,7 @@ const t_long_opt longopts[] = {
 	{"reverse", no_argument, NULL, 'r'},
 	{"string", required_argument, NULL, 's'},
 	{"size", required_argument, NULL, 'S'},
+	{"cli", no_argument, NULL, 1000},
 	{0}};
 
 static struct s_hash_src *add_src()
@@ -104,14 +106,104 @@ static struct s_hash_src *add_src_front()
 	return new;
 }
 
+S32 run_cli()
+{
+	struct s_hash_src *src;
+	string line;
+	string ptr;
+	bool file;
+
+	while (TRUE)
+	{
+		src = NULL;
+		g_sources = NULL;
+		g_src_last = NULL;
+		file = FALSE;
+		line = readline("ft_ssl> ");
+		ptr = line;
+		if (line == NULL || !ft_strcmp(line, "exit"))
+		{
+			free(line);
+			break;
+		}
+
+		if (!ft_strncmp(line, "file ", 5))
+		{
+			file = TRUE;
+			line += 5;
+			if (!*line)
+			{
+				ft_fprintf(ft_fstderr, "Invalid command\n");
+				goto readline_again;
+			}
+		}
+
+		g_func = NULL;
+		for (U8 i = 0; i < (sizeof(call_table) / sizeof(call_table[0])); i++)
+		{
+			U64 len = ft_strlen(call_table[i].name);
+			if (!ft_strncmp(line, call_table[i].name, len))
+			{
+				if (*(line + len) != ' ')
+				{
+					ft_fprintf(ft_fstderr, "Invalid command\n");
+					goto readline_again;
+				}
+
+				g_func = &call_table[i];
+				line += ft_strlen(call_table[i].name) + 1;
+				if (!*line)
+				{
+					ft_fprintf(ft_fstderr, "Invalid command\n");
+					goto readline_again;
+				}
+				break;
+			}
+		}
+		if (!g_func)
+		{
+			ft_fprintf(ft_fstderr, "Invalid function\n");
+			goto readline_again;
+		}
+
+		src = add_src();
+		if (file)
+		{
+			src->is_file = TRUE;
+			src->file.filename = line;
+			src->file.f = ft_fopen(line, "r");
+			if (src->file.f == NULL)
+			{
+				ft_fprintf(ft_fstderr, "Couldn't open file %s: %s\n", line, ft_strerror2(ft_errno));
+				goto readline_again;
+			}
+		}
+		else
+		{
+			src->is_file = FALSE;
+			src->str.data = line;
+			src->str.len = ft_strlen(line);
+		}
+
+		g_func->f();
+
+	readline_again:
+		free(src);
+		free(ptr);
+	}
+	return 0;
+}
+
 S32 main()
 {
 	struct s_hash_src *s;
 	bool read_stdin;
+	bool cli;
 
 	{ /* options */
 		S32 opt;
 
+		cli = FALSE;
 		g_sources = NULL;
 		g_src_last = NULL;
 		g_print_src = FALSE;
@@ -124,6 +216,10 @@ S32 main()
 		{
 			switch (opt)
 			{
+			case 1000:
+				cli = TRUE;
+				break;
+
 			case 'p':
 				g_print_src = TRUE;
 				break;
@@ -176,6 +272,9 @@ S32 main()
 			ft_errno = FT_EOMEM;
 			return 1;
 		}
+
+		if (cli)
+			return run_cli();
 
 		if ((ft_argc - ft_optind) < 1)
 		{
@@ -232,6 +331,7 @@ S32 main()
 			s->file.f = ft_fstdin;
 		}
 	}
+
 	return g_func->f();
 }
 

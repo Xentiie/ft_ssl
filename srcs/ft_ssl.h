@@ -6,7 +6,7 @@
 /*   By: reclaire <reclaire@student.42mulhouse.f    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/11/06 14:06:50 by reclaire          #+#    #+#             */
-/*   Updated: 2024/11/20 11:05:51 by reclaire         ###   ########.fr       */
+/*   Updated: 2024/11/20 14:50:49 by reclaire         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -34,7 +34,7 @@ struct s_hash_src
 			U64 len;
 		} str;
 	};
-	char rd_buf[50];
+	char *rd_buf;
 	U64 rd_buf_len;
 	struct s_hash_src *next;
 };
