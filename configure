@@ -1,5 +1,5 @@
 #!/bin/bash
-VER=1.0.1
+VER=1.0.3
 set -e
 cd "$(dirname "$0")"
 
@@ -10,6 +10,11 @@ join() {
 		printf %s "$f" "${@/#/$d}"
 	fi
 }
+
+# echo 'nom: premier arg'
+# suivit d'une backtrace
+#
+# le deuxieme arg spécifie combien d'appels on skip dans la backtrace, du plus récent
 cf_error() {
 	local i
 	local skip
@@ -29,10 +34,13 @@ cf_error() {
 	done
 }
 
+#le nom de notre program
 _OWN_NAME=$0
+#variable a la con utilisé en bas
 _N=0
-_CC_WINDOWS=x86_64-w64-mingw32-gcc
-_CC_LINUX=gcc
+#compilateurs
+CC_WINDOWS=x86_64-w64-mingw32-gcc
+CC_LINUX=gcc
 
 #Global config
 INDENT=0
@@ -44,13 +52,12 @@ CC=""
 OUT_INCLUDES=()
 OUT_LIBS=()
 OUT_LIBS_PATHS=()
-G_CFLAGS=()
-G_INCLUDES=()
 
 #make = write config.mk
 #config = write formatted libs and cflags
 #json = write formatted json
 MODE="make"
+#pour déterminer le CC
 TARGET_OS=""
 TARGET_NAME=""
 RULE_NAME=""
@@ -84,22 +91,6 @@ cf_set_mode() {
 		cf_error "mode '$1': should be make/config/json"
 	fi
 	MODE=$1
-}
-cf_add_global_cflag() {
-	G_CFLAGS+=("$1")
-}
-cf_fmt_global_cflags() {
-	echo "${G_CFLAGS[@]}"
-}
-cf_add_global_include() {
-	G_INCLUDES+=("$1")
-}
-cf_fmt_global_includes() {
-	out=""
-	for i in "${G_INCLUDES[@]}"; do
-		out="$out -I$i"
-	done
-	echo "$out"
 }
 #Usage: cf_add_output_lib <name> <path>
 cf_add_output_lib() {
@@ -458,6 +449,8 @@ cf_run() {
 			args+=("$arg")
 		fi
 	done
+	echo "mode: $MODE"
+
 
 	if [ "$MODE" == "make" ]; then
 		echo -n > $OUTPUT_FILE
@@ -469,22 +462,32 @@ cf_run() {
 		else
 			TARGET_OS="linux"
 		fi
+		echo "selected target: $TARGET_OS"
+	else
+		echo "specified target: $1"
 	fi
+
 
 	_begin_dummy_target
 	if [ "$TARGET_OS" == "linux" ]; then
-		CC=$_CC_LINUX
+		CC=$CC_LINUX
 		cf_add_cflag "-DFT_OS_LINUX"
 	elif [ "$TARGET_OS" == "windows" ]; then
-		CC=$_CC_WINDOWS
+		CC=$CC_WINDOWS
 		cf_add_cflag "-DFT_OS_WIN"
 	else
-		echo Not supported, defaulting to linux
-		CC=$_CC_LINUX
+		echo "target os '$TARGET_OS' not supported, defaulting to linux"
+		CC=$CC_LINUX
 		cf_add_cflag "-DFT_OS_LINUX"
 	fi
 	_end_dummy_target
+	echo "selected C compiler: $CC"
+	output=$(which "$CC")
+	if [[ $? != 0 ]]; then
+		cf_error "'which $CC' failed"
+	fi
 
+	echo "configure..."
 	configure "${args[@]}"
 
 	if [ "$MODE" == "json" ]; then echo; fi
@@ -499,8 +502,6 @@ configure() {
 		cf_add_cflag "-Wno-unknown-pragmas"
 		cf_add_cflag "-g"
 		cf_add_cflag "-O3"
-		
-		cf_add_raw_lib "readline"
 
 		cf_add_pkg "../libft"
 

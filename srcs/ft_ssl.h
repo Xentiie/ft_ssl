@@ -6,7 +6,7 @@
 /*   By: reclaire <reclaire@student.42mulhouse.f    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/11/06 14:06:50 by reclaire          #+#    #+#             */
-/*   Updated: 2024/11/20 14:50:49 by reclaire         ###   ########.fr       */
+/*   Updated: 2024/11/22 10:59:48 by reclaire         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,39 +14,61 @@
 #define FT_SSL_H
 
 #include "libft/std.h"
+#include "libft/getopt.h"
+#include "inputs/inputs.h"
 
-struct s_hash_blk
+typedef S32 (*f_ssl_func)();
+
+enum e_func_type
 {
-	const U8 *ptr;
-	U64 size;
+	MESSAGE_DIGEST,
+	CIPHER,
 };
 
-struct s_hash_src
+struct s_ssl_func
 {
-	bool is_file;
-	union {
-		struct {
-			const_string filename;
-			t_file *f;
-		} file;
-		struct {
-			const_string data;
-			U64 len;
-		} str;
-	};
-	char *rd_buf;
-	U64 rd_buf_len;
-	struct s_hash_src *next;
+	const_string name;
+	// clang-format off
+	f_ssl_func f;
+	// clang-format on
+	enum e_func_type type;
 };
-extern struct s_hash_src *g_sources;
 
-struct s_hash_blk read_data(struct s_hash_src *src);
-void print_result(struct s_hash_src *src, U8 *data, U64 data_len);
+#define GLOBAL_OPTS "hS:"
+#define GLOBAL_LONGOPTS {"help", no_argument, NULL, 'h'}, {"size", required_argument, NULL, 'S'}
+extern const struct s_ssl_func *g_func;
+S32 parse_global_opts(S32 opt);
+void print_escape(const U8 *content, U64 len);
+void print_help();
 
-S32 md5();
-S32 sha1();
-S32 sha224();
-S32 sha256();
-S32 whirlpool();
+/* message digests */
+S32 run_digest();
+
+extern bool g_print_src;
+extern bool g_quiet;
+extern bool g_reverse;
+void print_digest_result(struct s_input_source *src, U8 *data, U64 data_len);
+
+S32 md5(struct s_input_source *srcs);
+S32 sha1(struct s_input_source *srcs);
+S32 sha224(struct s_input_source *srcs);
+S32 sha256(struct s_input_source *srcs);
+S32 whirlpool(struct s_input_source *srcs);
+
+/* ciphers */
+enum e_cipher_mode
+{
+	ENCODE,
+	DECODE	
+};
+
+extern enum e_cipher_mode g_cipher_mode;
+
+S32 run_cipher();
+
+S32 base64();
+S32 des();
+S32 des_ecb();
+S32 des_cbc();
 
 #endif

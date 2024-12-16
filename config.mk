@@ -1,15 +1,15 @@
 .DEFAULT_GOAL=all
 NAME=ft_ssl
 CFLAGS=-Wall -Wextra -Wno-unknown-pragmas -g -O3
-INCLUDES= -I./srcs/  -I/home/reclaire/Desktop/ft_ssl/libft
-LIBS= -lreadline  -lft -lm
-LIBS_PATHS=  -L/home/reclaire/Desktop/ft_ssl/libft
+INCLUDES= -I./srcs/  -I/home/reclaire/Desktop/libft/include
+LIBS=  -lft -lm
+LIBS_PATHS=  -L/home/reclaire/Desktop/libft
 RM=rm -rf
-CC=gcc
-SRCS=./srcs/md5.c ./srcs/sha256.c ./srcs/main.c ./srcs/sha224.c ./srcs/sha1.c ./srcs/whirlpool.c
-OBJS=./objs/md5.o ./objs/sha256.o ./objs/main.o ./objs/sha224.o ./objs/sha1.o ./objs/whirlpool.o
+CC=afl-gcc
+SRCS=./srcs/inputs/inputs.c ./srcs/digests.c ./srcs/main.c ./srcs/digests/md5.c ./srcs/digests/sha256.c ./srcs/digests/sha224.c ./srcs/digests/sha512.c ./srcs/digests/sha1.c ./srcs/digests/whirlpool.c ./srcs/ciphers/des_cbc.c ./srcs/ciphers/des_ecb.c ./srcs/ciphers/base64.c ./srcs/ciphers.c
+OBJS=./objs/inputs.o ./objs/digests.o ./objs/main.o ./objs/md5.o ./objs/sha256.o ./objs/sha224.o ./objs/sha512.o ./objs/sha1.o ./objs/whirlpool.o ./objs/des_cbc.o ./objs/des_ecb.o ./objs/base64.o ./objs/ciphers.o
 _libft: 
-	$(MAKE) -C ./libft
+	$(MAKE) -C ../libft
 .PHONY: _libft
 
 packages: _libft
@@ -32,21 +32,42 @@ fclean: clean
 re: fclean all
 .PHONY: re
 
-./objs/md5.o: ./srcs/md5.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/md5.c -o ./objs/md5.o
+./objs/inputs.o: ./srcs/inputs/inputs.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/inputs/inputs.c -o ./objs/inputs.o
 
-./objs/sha256.o: ./srcs/sha256.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/sha256.c -o ./objs/sha256.o
+./objs/digests.o: ./srcs/digests.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/digests.c -o ./objs/digests.o
 
 ./objs/main.o: ./srcs/main.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/main.c -o ./objs/main.o
 
-./objs/sha224.o: ./srcs/sha224.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/sha224.c -o ./objs/sha224.o
+./objs/md5.o: ./srcs/digests/md5.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/digests/md5.c -o ./objs/md5.o
 
-./objs/sha1.o: ./srcs/sha1.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/sha1.c -o ./objs/sha1.o
+./objs/sha256.o: ./srcs/digests/sha256.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/digests/sha256.c -o ./objs/sha256.o
 
-./objs/whirlpool.o: ./srcs/whirlpool.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/whirlpool.c -o ./objs/whirlpool.o
+./objs/sha224.o: ./srcs/digests/sha224.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/digests/sha224.c -o ./objs/sha224.o
+
+./objs/sha512.o: ./srcs/digests/sha512.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/digests/sha512.c -o ./objs/sha512.o
+
+./objs/sha1.o: ./srcs/digests/sha1.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/digests/sha1.c -o ./objs/sha1.o
+
+./objs/whirlpool.o: ./srcs/digests/whirlpool.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/digests/whirlpool.c -o ./objs/whirlpool.o
+
+./objs/des_cbc.o: ./srcs/ciphers/des_cbc.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/ciphers/des_cbc.c -o ./objs/des_cbc.o
+
+./objs/des_ecb.o: ./srcs/ciphers/des_ecb.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/ciphers/des_ecb.c -o ./objs/des_ecb.o
+
+./objs/base64.o: ./srcs/ciphers/base64.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/ciphers/base64.c -o ./objs/base64.o
+
+./objs/ciphers.o: ./srcs/ciphers.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ./srcs/ciphers.c -o ./objs/ciphers.o
 
