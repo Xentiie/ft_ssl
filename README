@@ -1,0 +1,18 @@
+Compilation instructions:
+
+Requirements:
+	bash
+	make
+	gcc
+
+In ft_ssl/:
+	git clone https://github.com/Xentiie/libft
+	In ft_ssl/libft/:
+		./configure
+	./configure
+	make
+	./ft_ssl -h
+
+Note:
+	Ciphers are currently WIP, will be added later
+	
